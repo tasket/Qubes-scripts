@@ -1,0 +1,139 @@
+#!/usr/bin/python2
+##
+##  Update multiple operating systems on a Qubes OS systems
+##  by tasket / Chris Laprise 2017
+##  tasket@openmailbox.org
+
+import os
+import sys
+import subprocess
+
+from time import sleep
+#from qubes.qubes import QubesVmCollection
+from optparse import OptionParser
+
+
+usage = "usage: %prog [options] [vms-to-be-included ...]"
+parser = OptionParser (usage)
+parser.add_option ("--available", action="store_true", dest="include_available", default=False,
+                   help="Include templates known to have available updates")
+parser.add_option ("--all", action="store_true", dest="include_all", default=False,
+                   help="Include all templates")
+parser.add_option ("--trim", action="store_true", dest="do_trim", default=False,
+                   help="Trim root volumes")
+(options, args) = parser.parse_args ()
+
+
+qc = QubesVmCollection()
+qc.lock_db_for_reading()
+try:
+    qc.load()
+finally:
+    qc.unlock_db()
+
+excludes = ("dom0","windows7", "windows8", "windows10")
+vmlist = []
+
+# Process selections
+for vm in qc.values():
+    if vm.is_updateable():
+        if vm.name in args:
+            vmlist.append(vm)
+        elif vm.name in excludes:
+            continue
+        elif options.include_all:
+            vmlist.append(vm)
+        elif options.include_available:
+            try:
+                with open(vm.dir_path + "/updates.stat") as f:
+                    if f.read(1) == "1":
+                        vmlist.append(vm)
+            except Exception as error:
+                print "",
+            
+
+print "\nMulti-Update Selections :"
+for vm in vmlist:
+    print "  ", vm.name
+    
+if (len (vmlist) < 1):
+    print >> sys.stderr, "You must specify --all, --available or VM names."
+    exit (0)
+
+#exit(0)
+
+
+
+tmpscript = "/home/user/.qubes-multi-update.tmp"
+
+for vm in vmlist:
+    if vm.qid == 0: # If dom0 selected, save it for last
+        continue
+    
+    rows,cols = os.popen('stty size', 'r').read().split()
+    print "\n"
+    print "_" * int(cols)
+    print "\n  Beginning update for", vm.name
+    print "_" * int(cols)
+    
+    was_running = vm.is_running()
+    p = vm.run("echo Checking readiness.", passio=True, autostart=True)
+    if not vm.is_fully_usable():
+        print "\nVM State is", vm.get_power_state(), "and not usable - SKIPPING.\n"
+        q = vm.shutdown()
+        continue
+    p = vm.run("cat >"+tmpscript, passio=True, passio_popen=True,
+                autostart=True, gui=False)
+    p.stdin.write("""#!/bin/bash
+    export TERM=vt100
+    if [ -e /etc/redhat-release ]; then
+        dnf update -y --best && dnf clean packages
+    elif [ -e /etc/debian_version ]; then
+        apt-get update && apt-get -V dist-upgrade <<< 'Y' && apt-get clean
+    elif [ -e /etc/arch-release ]; then
+        pacman -Suy
+    else
+        echo '\nUnknown distribution type! Please update manually.\n'
+    fi
+    echo Done.
+    """)
+    p.stdin.close()
+
+    p = vm.run("chmod +x "+tmpscript+" && bash "+tmpscript,
+                passio=True, gui=False, user="root")
+    p = vm.run("rm -f "+tmpscript, passio=True, gui=False, user="root")
+    print "Running qubes-update-check."
+    p = vm.run("service qubes-update-check start", passio=True, gui=False, user="root")
+    if not vm.is_template() and options.do_trim: # trim standalone vm
+        print "Trim root volume:"
+        p = vm.run("fstrim -v /", passio=True, gui=False, user="root")
+    if vm.is_template() or not was_running:
+        print "Shutting down", vm.name,
+        q = vm.shutdown()
+        while vm.is_running():
+            print ".",
+            sleep(2)
+        print
+    if options.do_trim and vm.is_template(): # attempt to trim template vm
+        print "Trim root volume (offline):"
+        try:
+            subprocess.check_call(["qvm-trim-template", vm.name])
+        except:
+            print "qvm-trim-template returned non-zero status"
+
+
+for vm in vmlist:
+    if vm.qid == 0:
+        rows,cols = os.popen('stty size', 'r').read().split()
+        print "\n"
+        print "=" * int(cols)
+        print "\n  Beginning update for dom0"
+        print "=" * int(cols)
+        try:
+            subprocess.check_call(["sudo","/usr/bin/qubes-dom0-update"])
+        except:
+            print "qubes-dom0-update returned non-zero status"
+        break
+
+
+print "\nEnd of Multi-Update process."
