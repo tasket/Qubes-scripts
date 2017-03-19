@@ -9,7 +9,7 @@ import sys
 import subprocess
 
 from time import sleep
-#from qubes.qubes import QubesVmCollection
+from qubes.qubes import QubesVmCollection
 from optparse import OptionParser
 
 
@@ -122,6 +122,7 @@ for vm in vmlist:
             print "qvm-trim-template returned non-zero status"
 
 
+# Update dom0. Maybe needs a non-interactive mode.
 for vm in vmlist:
     if vm.qid == 0:
         rows,cols = os.popen('stty size', 'r').read().split()
