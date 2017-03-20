@@ -16,9 +16,9 @@ from optparse import OptionParser
 usage = "usage: %prog [options] [vms-to-be-included ...]"
 parser = OptionParser (usage)
 parser.add_option ("--available", action="store_true", dest="include_available", default=False,
-                   help="Include templates known to have available updates")
+                   help="Include updatable VMs known to have available updates")
 parser.add_option ("--all", action="store_true", dest="include_all", default=False,
-                   help="Include all templates")
+                   help="Include all updatable VMs")
 parser.add_option ("--trim", action="store_true", dest="do_trim", default=False,
                    help="Trim root volumes")
 (options, args) = parser.parse_args ()
