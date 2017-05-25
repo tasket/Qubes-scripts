@@ -15,12 +15,16 @@ from optparse import OptionParser
 
 usage = "usage: %prog [options] [vms-to-be-included ...]"
 parser = OptionParser (usage)
-parser.add_option ("--available", action="store_true", dest="include_available", default=False,
-                   help="Include updatable VMs known to have available updates")
-parser.add_option ("--all", action="store_true", dest="include_all", default=False,
-                   help="Include all updatable VMs")
-parser.add_option ("--trim", action="store_true", dest="do_trim", default=False,
+parser.add_option ("-l", "--available", action="store_true", dest="include_available", default=False,
+                   help="Include templates known to have available updates")
+parser.add_option ("-a", "--all", action="store_true", dest="include_all", default=False,
+                   help="Include all templates")
+parser.add_option ("-u", "--unattended", action="store_true", dest="unattended", default=False,
+                   help="Non-interactive, supress prompts")
+parser.add_option ("-t", "--trim", action="store_true", dest="do_trim", default=False,
                    help="Trim root volumes")
+parser.add_option ("-s", "--shutdown", action="store_true", dest="shutdown", default=False,
+                   help="Shutdown all VMs after update")
 (options, args) = parser.parse_args ()
 
 
@@ -82,16 +86,32 @@ for vm in vmlist:
         print "\nVM State is", vm.get_power_state(), "and not usable - SKIPPING.\n"
         q = vm.shutdown()
         continue
+
     p = vm.run("cat >"+tmpscript, passio=True, passio_popen=True,
                 autostart=True, gui=False)
-    p.stdin.write("""#!/bin/bash
-    export TERM=vt100
+    p.stdin.write("#!/bin/bash\n")
+    if options.unattended:
+        p.stdin.write("export unattended=true\n")
+        p.stdin.write("export DEBIAN_FRONTEND=noninteractive\n")
+    p.stdin.write("""export TERM=vt100
     if [ -e /etc/redhat-release ]; then
-        dnf update -y --best && dnf clean packages
+        if [ "$unattended" = "true" ]; then
+            dnf update -y --best
+        else
+            dnf update --best
+        fi
+        dnf clean packages
     elif [ -e /etc/debian_version ]; then
-        apt-get update && apt-get -V dist-upgrade <<< 'Y' && apt-get clean
-    elif [ -e /etc/arch-release ]; then
-        pacman -Suy
+        apt-get update
+        if [ "$DEBIAN_FRONTEND" = "noninteractive" ]; then
+            apt-get dist-upgrade -V -q -y -o Dpkg::Options::="--force-confdef" \
+              -o Dpkg::Options::="--force-confold"
+        else
+            apt-get dist-upgrade -V
+        fi
+        apt-get clean
+#    elif [ -e /etc/arch-release ]; then
+#        pacman -Suy
     else
         echo '\nUnknown distribution type! Please update manually.\n'
     fi
@@ -102,27 +122,18 @@ for vm in vmlist:
     p = vm.run("chmod +x "+tmpscript+" && bash "+tmpscript,
                 passio=True, gui=False, user="root")
     p = vm.run("rm -f "+tmpscript, passio=True, gui=False, user="root")
-    print "Running qubes-update-check."
-    p = vm.run("service qubes-update-check start", passio=True, gui=False, user="root")
     if not vm.is_template() and options.do_trim: # trim standalone vm
         print "Trim root volume:"
         p = vm.run("fstrim -v /", passio=True, gui=False, user="root")
-    if vm.is_template() or not was_running:
+    if options.shutdown or not was_running:
         print "Shutting down", vm.name,
         q = vm.shutdown()
         while vm.is_running():
             print ".",
             sleep(2)
         print
-    if options.do_trim and vm.is_template(): # attempt to trim template vm
-        print "Trim root volume (offline):"
-        try:
-            subprocess.check_call(["qvm-trim-template", vm.name])
-        except:
-            print "qvm-trim-template returned non-zero status"
 
 
-# Update dom0. Maybe needs a non-interactive mode.
 for vm in vmlist:
     if vm.qid == 0:
         rows,cols = os.popen('stty size', 'r').read().split()
@@ -135,6 +146,17 @@ for vm in vmlist:
         except:
             print "qubes-dom0-update returned non-zero status"
         break
+
+if options.shutdown:
+    subprocess.check_call(["qvm-shutdown", "--all", "--wait", "--wait-time=40"])
+
+for vm in vmlist:
+    if options.do_trim and vm.is_template(): # attempt to trim template vm
+        print "Trim root volume (offline):"
+        try:
+            subprocess.check_call(["qvm-trim-template", vm.name])
+        except:
+            print "qvm-trim-template returned non-zero status"
 
 
 print "\nEnd of Multi-Update process."
