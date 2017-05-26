@@ -16,10 +16,10 @@ from optparse import OptionParser
 exclude_list = []
 usage = "usage: %prog [options] [vms-to-be-included ...]"
 parser = OptionParser (usage)
-parser.add_option ("-l", "--available", action="store_true", dest="include_available", default=False,
-                   help="Include templates known to have available updates")
 parser.add_option ("-a", "--all", action="store_true", dest="include_all", default=False,
-                   help="Include all templates")
+                   help="Include all updateable VMs")
+parser.add_option ("-l", "--available", action="store_true", dest="include_available", default=False,
+                   help="Include VMs known to have available updates")
 parser.add_option ("-e", "--exclude", action="append", dest="exclude_list",
                    help="Exclude from selection; repeat as needed")
 parser.add_option ("-u", "--unattended", action="store_true", dest="unattended", default=False,
