@@ -8,6 +8,7 @@ Scripts that help with administration and usage of Qubes OS
       -h, --help     show this help message and exit
       -l, --available    Include templates known to have available updates
       -a, --all          Include all templates
+      -e, --exclude      Exclude from selection; repeat as needed
       -u, --unattended   Non-interactive, supress prompts
       -t, --trim         Trim root volumes
       -s, --shutdown     Shutdown all VMs after updates
