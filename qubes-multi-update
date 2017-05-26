@@ -13,12 +13,15 @@ from qubes.qubes import QubesVmCollection
 from optparse import OptionParser
 
 
+exclude_list = []
 usage = "usage: %prog [options] [vms-to-be-included ...]"
 parser = OptionParser (usage)
 parser.add_option ("-l", "--available", action="store_true", dest="include_available", default=False,
                    help="Include templates known to have available updates")
 parser.add_option ("-a", "--all", action="store_true", dest="include_all", default=False,
                    help="Include all templates")
+parser.add_option ("-e", "--exclude", action="append", dest="exclude_list",
+                   help="Exclude from selection; repeat as needed")
 parser.add_option ("-u", "--unattended", action="store_true", dest="unattended", default=False,
                    help="Non-interactive, supress prompts")
 parser.add_option ("-t", "--trim", action="store_true", dest="do_trim", default=False,
@@ -26,6 +29,8 @@ parser.add_option ("-t", "--trim", action="store_true", dest="do_trim", default=
 parser.add_option ("-s", "--shutdown", action="store_true", dest="shutdown", default=False,
                    help="Shutdown all VMs after update")
 (options, args) = parser.parse_args ()
+if options.exclude_list is None:
+    options.exclude_list = ("")
 
 
 qc = QubesVmCollection()
@@ -43,7 +48,7 @@ for vm in qc.values():
     if vm.is_updateable():
         if vm.name in args:
             vmlist.append(vm)
-        elif vm.name in excludes:
+        elif vm.name in excludes or vm.name in options.exclude_list:
             continue
         elif options.include_all:
             vmlist.append(vm)
