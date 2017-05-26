@@ -13,7 +13,6 @@ from qubes.qubes import QubesVmCollection
 from optparse import OptionParser
 
 
-exclude_list = []
 usage = "usage: %prog [options] [vms-to-be-included ...]"
 parser = OptionParser (usage)
 parser.add_option ("-a", "--all", action="store_true", dest="include_all", default=False,
@@ -21,7 +20,7 @@ parser.add_option ("-a", "--all", action="store_true", dest="include_all", defau
 parser.add_option ("-l", "--available", action="store_true", dest="include_available", default=False,
                    help="Include VMs known to have available updates")
 parser.add_option ("-e", "--exclude", action="append", dest="exclude_list",
-                   help="Exclude from selection; repeat as needed")
+                   help="Exclude VM; repeat as needed")
 parser.add_option ("-u", "--unattended", action="store_true", dest="unattended", default=False,
                    help="Non-interactive, supress prompts")
 parser.add_option ("-t", "--trim", action="store_true", dest="do_trim", default=False,
@@ -30,7 +29,7 @@ parser.add_option ("-s", "--shutdown", action="store_true", dest="shutdown", def
                    help="Shutdown all VMs after update")
 (options, args) = parser.parse_args ()
 if options.exclude_list is None:
-    options.exclude_list = ("")
+    options.exclude_list = []
 
 
 qc = QubesVmCollection()
@@ -40,15 +39,23 @@ try:
 finally:
     qc.unlock_db()
 
-excludes = ("dom0","windows7", "windows8", "windows10")
 vmlist = []
+excludes = ("dom0","windows7", "windows8", "windows10")
+exclude_file = "/etc/qubes/autoupdate-exclude"
+exclude_from_file = []
+if os.path.isfile(exclude_file):
+    with open(exclude_file) as f:
+        lines = f.readlines()
+    exclude_from_file = [str(e.strip()) for e in lines]
+    print "List from", exclude_file, "is in effect..."
 
 # Process selections
 for vm in qc.values():
     if vm.is_updateable():
         if vm.name in args:
             vmlist.append(vm)
-        elif vm.name in excludes or vm.name in options.exclude_list:
+        elif vm.name in excludes or vm.name in options.exclude_list \
+            or vm.name in exclude_from_file:
             continue
         elif options.include_all:
             vmlist.append(vm)
@@ -59,12 +66,11 @@ for vm in qc.values():
                         vmlist.append(vm)
             except Exception as error:
                 print "",
-            
 
 print "\nMulti-Update Selections :"
 for vm in vmlist:
     print "  ", vm.name
-    
+
 if (len (vmlist) < 1):
     print >> sys.stderr, "You must specify --all, --available or VM names."
     exit (0)

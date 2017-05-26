@@ -13,5 +13,5 @@ Scripts that help with administration and usage of Qubes OS
       -t, --trim         Trim root volumes
       -s, --shutdown     Shutdown all VMs after updates
 
-Updates multiple template and standalone VMs (and dom0). Has options for TRIM-ing after update and selecting based on available update status. The `--shutdown` option can be used with `--trim` to help ensure template trims are successful. Dom0 is normally ignored unless specified on the command line, and unlike the others dom0 update currently runs in interactive mode (and last).
+Updates multiple template and standalone VMs (and dom0). Has options for TRIM-ing after update and selecting based on available update status. The `--shutdown` option can be used with `--trim` to help ensure template trims are successful. Dom0 is normally ignored unless specified on the command line, and unlike the others dom0 update currently runs in interactive mode (and last). Excludes may also be specified in '/etc/qubes/autoupdate-exclude'.
 
