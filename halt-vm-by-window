@@ -1,0 +1,14 @@
+#!/bin/bash
+
+#CUR_WIN_ID=`xprop -root _NET_ACTIVE_WINDOW |cut -d \# -f2`
+CUR_WIN_ID=`xdotool getwindowfocus`
+CUR_VM=`xprop _QUBES_VMNAME -id $CUR_WIN_ID |cut -d \" -f2`
+
+#echo $CUR_VM 
+#exit 0
+
+#qvm-run $CUR_VM 'pkill firefox; pkill thunderbird; pkill icedove'; sleep 6
+qvm-run $CUR_VM 'xdotool search --name "Mozilla Firefox" key ctrl+q'
+qvm-run $CUR_VM 'xdotool search --name "Mozilla Thunderbird" key ctrl+q'
+sleep 4
+/usr/bin/qvm-shutdown $CUR_VM  --wait --wait-time=40
