@@ -5,6 +5,7 @@ import shutil
 import subprocess
 from time import time
 
+
 # Error if not Qubes 3.x
 p = subprocess.check_call(["grep","-i","release 3","/etc/qubes-release"])
 
