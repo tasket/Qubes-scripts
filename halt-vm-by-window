@@ -11,4 +11,4 @@ CUR_VM=`xprop _QUBES_VMNAME -id $CUR_WIN_ID |cut -d \" -f2`
 qvm-run $CUR_VM 'xdotool search --name "Mozilla Firefox" key ctrl+q'
 qvm-run $CUR_VM 'xdotool search --name "Mozilla Thunderbird" key ctrl+q'
 sleep 4
-/usr/bin/qvm-shutdown $CUR_VM  --wait --wait-time=40
+/usr/bin/qvm-shutdown $CUR_VM  --wait --timeout=40

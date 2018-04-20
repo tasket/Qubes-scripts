@@ -1,0 +1,174 @@
+#!/usr/bin/python3
+##
+##  Update multiple operating systems on Qubes R4 systems
+##  by Chris Laprise 2017-2018
+##  tasket@protonmail.com  https://github.com/tasket
+
+
+import os
+import sys
+import subprocess
+from subprocess import PIPE
+
+from time import sleep
+from optparse import OptionParser
+import qubesadmin.tools
+
+
+usage = "usage: %prog [options] [vms-to-be-included ...]"
+parser = OptionParser (usage)
+parser.add_option ("-a", "--all", action="store_true", dest="include_all", default=False,
+                   help="Include all updateable VMs")
+parser.add_option ("-l", "--available", action="store_true", dest="include_available", default=False,
+                   help="Include VMs known to have available updates")
+parser.add_option ("-t", "--templates", action="store_true", dest="templates_only", default=False,
+                   help="Include only templates, not standalone")
+parser.add_option ("-e", "--exclude", action="append", dest="exclude_list",
+                   help="Exclude VM; repeat as needed")
+parser.add_option ("-u", "--unattended", action="store_true", dest="unattended", default=False,
+                   help="Non-interactive, supress prompts")
+parser.add_option ("--shutdown-all", action="store_true", dest="shutdown_all", default=False,
+                   help="Shutdown _all_ VMs at end of process")
+
+
+def main(args=None, app=None):
+
+    (options, args) = parser.parse_args ()
+    if options.exclude_list is None:
+        options.exclude_list = []
+    qc = qubesadmin.Qubes().app.domains
+
+    vmlist = []
+    excludes = ["dom0","windows7", "windows8", "windows10"]
+    exclude_file = "/etc/qubes/autoupdate-exclude"
+    exclude_from_file = []
+    if os.path.isfile(exclude_file):
+        with open(exclude_file) as f:
+            lines = f.readlines()
+        exclude_from_file = [str(e.strip()) for e in lines]
+        print("List from", exclude_file, "is in effect...")
+
+    # Process selections
+    for vm in qc:
+        if vm.qid > 0:
+            updateable = vm.updateable
+            if not updateable:
+                continue
+            elif vm.name in args:
+                vmlist.append(vm)
+            elif vm.name in excludes + options.exclude_list + exclude_from_file:
+                continue
+            elif options.templates_only and vm.klass != 'TemplateVM':
+                continue
+            elif options.include_all:
+                vmlist.append(vm)
+            elif options.include_available:
+                if vm.features.get("updates-available", False) == "1":
+                    vmlist.append(vm)
+
+    print("\nMulti-Update Selections :")
+    for vm in vmlist:
+        print("  ", vm.name)
+
+    if (len (vmlist) < 1):
+        print("You must specify --all, --available or VM names.", file=sys.stderr)
+        exit (1)
+
+
+    tmpscript = "/home/user/.qubes-multi-update.tmp"
+
+    for vm in vmlist:
+        if vm.qid == 0: # If dom0 selected, save it for last
+            continue
+        
+        rows,cols = os.popen('stty size', 'r').read().split()
+        print("\n")
+        print("_" * int(cols))
+        print("\n  Beginning update for", vm.name)
+        print("_" * int(cols))
+        
+        was_running = vm.is_running()
+        if was_running:
+            print("VM is running.")
+        else:
+            print("Starting VM...")
+            p = vm.run("echo", wait=True, connect_timeout=60)
+        pstate = vm.get_power_state()
+        if pstate != "Running":
+            print("\nVM State is", pstate, "and not usable - SKIPPING.\n")
+            vm.shutdown()
+            continue
+
+        p = subprocess.Popen(["qvm-run","-p",vm.name,"cat >"+tmpscript], stdin=PIPE)
+        p.stdin.write(b"#!/bin/bash\n")
+        if options.unattended:
+            p.stdin.write(b"export unattended=true\n")
+        p.stdin.write(b"""export TERM=vt100
+        if [ -e /etc/redhat-release ]; then
+            if [ "$unattended" = "true" ]; then
+                dnf update -y --best
+            else
+                dnf update --best
+            fi
+            dnf clean packages
+        elif [ -e /etc/debian_version ]; then
+            apt-get update
+            if [ "$unattended" = "true" ]; then
+                export DEBIAN_FRONTEND=noninteractive
+                apt-get dist-upgrade -V -q -y -o Dpkg::Options::="--force-confdef" \
+                  -o Dpkg::Options::="--force-confold"
+            else
+                apt-get dist-upgrade -V
+            fi
+            apt-get clean
+        # elif [ -e /etc/arch-release ]; then
+        #    pacman -Suy
+        else
+            echo '\nUnknown distribution type! Please update manually.\n'
+        fi
+        echo Done.
+        """)
+        p.stdin.close()
+
+        try:
+            subprocess.check_call(["qvm-run","-p","-u","root",vm.name, \
+                "chmod +x "+tmpscript+" && bash "+tmpscript])
+        except:
+            print("\n**", vm.name, "update returned non-zero status!")
+            exit(1)
+        finally:
+            p = vm.run("rm -f "+tmpscript, user="root")
+        if options.shutdown or not was_running:
+            print("Shutting down", vm.name, end=" ")
+            vm.shutdown()
+            while vm.is_running():
+                print(".", end=" ")
+                sleep(2)
+            print()
+
+
+    for vm in vmlist:
+        if vm.qid == 0:
+            rows,cols = os.popen('stty size', 'r').read().split()
+            print("\n")
+            print("=" * int(cols))
+            print("\n  Beginning update for dom0")
+            print("=" * int(cols))
+            try:
+                subprocess.check_call(["sudo","/usr/bin/qubes-dom0-update"])
+            except:
+                print("\n** qubes-dom0-update returned non-zero status")
+                exit(1)
+            break
+
+    if options.shutdown_all:
+        subprocess.check_call(["qvm-shutdown", "--all", "--wait", "--wait-time=40"])
+
+
+    print("\nEnd of Multi-Update process.")
+
+
+
+
+if __name__ == '__main__':
+    sys.exit(main())
