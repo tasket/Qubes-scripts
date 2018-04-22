@@ -1,0 +1,93 @@
+#!/usr/bin/python3
+##
+##  findpref  - Find & Replace VM prefs
+##  by Chris Laprise 2018
+##  tasket@protonmail.com  https://github.com/tasket
+
+
+
+import sys
+from time import sleep
+from optparse import OptionParser
+import qubesadmin.vm
+
+usage = "usage: %prog [options] --pref=name search_value [new_value]"
+parser = OptionParser (usage)
+parser.add_option ("-p", "--pref", action="store", type="string", dest="prefname",
+                   help="(Required) Name of pref to search/change")
+parser.add_option ("-e", "--exclude", action="append", dest="exclude_list",
+                   help="Exclude VM; repeat as needed")
+parser.add_option ("-y", "--yes", action="store_true", dest="go_ahead", default=False,
+                   help="Set values without prompting")
+parser.add_option ("--mtypes", action="append", dest="mtypes",
+                default=None, help="Match VM type: AppVM, TemplateVM, StandaloneVM")
+
+
+def main(args=None, app=None):
+
+    (options, args) = parser.parse_args ()
+    if len(args) >0 and len(options.prefname)>0:
+        searchval = args[0]
+        if len(args) == 2:
+            newval = args[1]
+            if not options.go_ahead and \
+                input("Are you sure (y/N)? ").lower() not in ["y", "yes"]:
+                exit(0)
+        elif len(args) == 1:
+            newval = None
+        else:
+            raise "Too many args."
+    else:
+        raise "You must supply a --pref plus a value."
+
+    if options.exclude_list is None:
+        options.exclude_list = []
+    if options.mtypes is None:
+        options.mtypes = []
+
+
+    qc = qubesadmin.Qubes().app.domains
+    vmlist = []
+ 
+    # Process selections
+    for vm in qc:
+        if vm.qid > 0:
+            if vm.name in options.exclude_list:
+                continue
+            if len(options.mtypes) > 0 and vm.klass not in options.mtypes:
+                continue
+            vmlist.append(vm)
+                
+
+
+    for vm in vmlist:
+
+        try:
+            value = getattr(vm, options.prefname)
+        except AttributeError:
+            #print("No such property '{0}'".format(options.prefname))
+            continue
+
+        if value is not None:
+            if str(value) == searchval:
+                print("Pref '{0}' for VM {1:<20s}:".format(options.prefname, vm.name), end="   ")
+                try:
+                    if newval is not None:
+                        setattr(vm, options.prefname, newval)
+                        if options.prefname == "netvm":
+                        # workaround for change netvm bug: wait and set again...
+                            sleep(2)
+                            setattr(vm, options.prefname, newval)
+                            sleep(1)
+                        print("old='{0}'   new='{1}'".format(searchval, newval))
+                    else:
+                        print("'{0}'".format(searchval))
+                except:
+                    print("Error:", sys.exc_info()[0])
+                    continue
+        
+
+
+
+if __name__ == '__main__':
+    sys.exit(main())
