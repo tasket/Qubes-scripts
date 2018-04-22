@@ -135,10 +135,10 @@ def main(args=None, app=None):
                 "chmod +x "+tmpscript+" && bash "+tmpscript])
         except:
             print("\n**", vm.name, "update returned non-zero status!")
-            exit(1)
+            raise
         finally:
             p = vm.run("rm -f "+tmpscript, user="root")
-        if options.shutdown or not was_running:
+        if options.shutdown_all or not was_running:
             print("Shutting down", vm.name, end=" ")
             vm.shutdown()
             while vm.is_running():
