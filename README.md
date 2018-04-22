@@ -25,7 +25,7 @@ Restores internal VM security so that authorization is required to gain root acc
 ## findpref
 Dom0: Find all VMs that match a pref value, optionally set new values for them. For example, its a handy way to switch all VMs that are using a particular netvm to a different netvm.
 
-    Usage: `findpref.py -p prefname searchval [newval]`
+    Usage: `findpref -p prefname searchval [newval]`
     
     Options:
       -p, --pref        Specify pref name/key to match (required)
