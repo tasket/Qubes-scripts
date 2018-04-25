@@ -46,3 +46,7 @@ Keeps a rotating collection of Btrfs snapshots for root fs in a /Snapshots folde
 
 A simple way to shutdown a Qubes VM associated with the currently active window. Before shutdown, any running instances of Firefox or Thunderbird in that VM will be told to quit; this allows the apps to save their open-tabs state.
 
+---
+
+### Caveat
+These scripts come with no warranty expressed or implied... use at your own risk! Also note that downloading programs via https may not protect their integrity in every case, so its a good idea to download with `git clone` and use a `gpg`-based verification procedure like `git log --show-signatures -1`.
