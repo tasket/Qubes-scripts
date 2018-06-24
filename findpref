@@ -48,7 +48,7 @@ def main(args=None, app=None):
 
     qc = qubesadmin.Qubes().app.domains
     vmlist = []
- 
+
     # Process selections
     for vm in qc:
         if vm.qid > 0:
@@ -57,11 +57,9 @@ def main(args=None, app=None):
             if len(options.mtypes) > 0 and vm.klass not in options.mtypes:
                 continue
             vmlist.append(vm)
-                
 
 
     for vm in vmlist:
-
         try:
             value = getattr(vm, options.prefname)
         except AttributeError:
@@ -74,7 +72,7 @@ def main(args=None, app=None):
                 try:
                     if newval is not None:
                         setattr(vm, options.prefname, newval)
-                        if options.prefname == "netvm":
+                        if options.prefname == "netvm" and vm.is_running():
                         # workaround for change netvm bug: wait and set again...
                             sleep(2)
                             setattr(vm, options.prefname, newval)
@@ -86,7 +84,6 @@ def main(args=None, app=None):
                     print("Error:", sys.exc_info()[0])
                     continue
         
-
 
 
 if __name__ == '__main__':
