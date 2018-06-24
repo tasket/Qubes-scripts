@@ -1,22 +1,38 @@
 #!/bin/sh
+##  system-stats-xen  :  Show resource stats in dom0
+##  by Chris Laprise 2018  https://github.com/tasket/Qubes-scripts
 
 delay=5
+sortcol=3
 sensor_lines='Package id 0|fan1'
-
-lnparse () {
-  if [ "$2" = 'CPU(%)' ]; then
-    clear
-    sensors |grep -E "^($sensor_lines)"
-    echo -e "\nVM NAME               CPU(% )    MEMORY(MB)"
-  else
-    echo "$ln"
-  fi
-}
-
+newline='
+'
+header="\nVM NAME               CPU(% )    MEMORY(MB)"
+sumline="___________________________________________"
+cpusum=0; memsum=0; table="$sumline"
 clear
-stdbuf -oL xentop -b -f -d $delay \
-| stdbuf -oL awk '{sub(/\.[0-9]/, "  ")} {printf ("%-20s   %5s     %7\047d\n", $1,$4,$5/1000) }' \
-| while read ln; do
-    lnparse $ln
-  done
+echo -e "$header\n"
 
+stdbuf -oL xentop -b -f -d $delay \
+| stdbuf -oL awk '{printf ("%-22s %5d     %7d\n", $1,$4,$5/1000) }' \
+| (
+    read ln
+    while true; do
+      read -t 0.1 ln # Read & sum until pause
+      if [ $? = 0 ]; then
+        table="$table$newline$ln"
+        read name cpu mem <<<"$ln"
+        (( cpusum += cpu ))
+        (( memsum += mem ))
+      else # Paused at end of list: print totals, make new page.
+        sort -k $sortcol -n -r <<<"$table"
+        printf '%-22s %5d     %7d\n' " " $cpusum $memsum
+        read ln
+        cpusum=0; memsum=0
+        table="$sumline"
+        clear
+        sensors |grep -E "^($sensor_lines)"
+        echo -e "$header\n"
+      fi
+    done
+  )
