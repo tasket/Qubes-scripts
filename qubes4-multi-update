@@ -5,6 +5,7 @@
 ##  tasket@protonmail.com  https://github.com/tasket
 
 
+import re
 import os
 import sys
 import subprocess
@@ -51,8 +52,7 @@ def main(args=None, app=None):
     # Process selections
     for vm in qc:
         if vm.qid > 0:
-            updateable = vm.updateable
-            if not updateable:
+            if not vm.updateable:
                 continue
             elif vm.name in args:
                 vmlist.append(vm)
@@ -75,7 +75,7 @@ def main(args=None, app=None):
         exit (1)
 
 
-    tmpscript = "/home/user/.qubes-multi-update.tmp"
+    tmpscript = b"/tmp/multi-update-guest.sh"
 
     for vm in vmlist:
         if vm.qid == 0: # If dom0 selected, save it for last
@@ -86,24 +86,31 @@ def main(args=None, app=None):
         print("_" * int(cols))
         print("\n  Beginning update for", vm.name)
         print("_" * int(cols))
-        
+
         was_running = vm.is_running()
         if was_running:
             print("VM is running.")
         else:
             print("Starting VM...")
-            p = vm.run("echo", wait=True, connect_timeout=60)
+            p = vm.run("sleep 2s", wait=True, connect_timeout=30)
         pstate = vm.get_power_state()
         if pstate != "Running":
             print("\nVM State is", pstate, "and not usable - SKIPPING.\n")
             vm.shutdown()
             continue
 
-        p = subprocess.Popen(["qvm-run","-p",vm.name,"cat >"+tmpscript], stdin=PIPE)
+        p = subprocess.Popen(["qvm-run","-p","-u","root",vm.name,b"cat >"+tmpscript], stdin=PIPE)
         p.stdin.write(b"#!/bin/bash\n")
         if options.unattended:
             p.stdin.write(b"export unattended=true\n")
         p.stdin.write(b"""export TERM=vt100
+        if [ -e /var/lib/whonix ]; then
+            curl -s --connect-timeout 30 localhost:8082 >/dev/null
+            for i in 1 2 3 LAST; do
+                echo -n ' .'
+                sleep 3s
+            done
+        fi
         if [ -e /etc/redhat-release ]; then
             if [ "$unattended" = "true" ]; then
                 dnf update -y --best
@@ -132,12 +139,13 @@ def main(args=None, app=None):
 
         try:
             subprocess.check_call(["qvm-run","-p","-u","root",vm.name, \
-                "chmod +x "+tmpscript+" && bash "+tmpscript])
+                b"chmod +x "+tmpscript+b" && bash "+tmpscript])
         except:
             print("\n**", vm.name, "update returned non-zero status!")
             raise
         finally:
-            p = vm.run("rm -f "+tmpscript, user="root")
+            subprocess.check_call(["qvm-run","-p","-u","root",vm.name, \
+                b"rm -f "+tmpscript])
         if options.shutdown_all or not was_running:
             print("Shutting down", vm.name, end=" ")
             vm.shutdown()
