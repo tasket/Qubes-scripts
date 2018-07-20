@@ -1,11 +1,15 @@
 #!/bin/sh
 
+## System stats for Qubes dom0
+## Chris Laprise 2018
+## https://github.com/tasket/Qubes-scripts
+
 delay=5
 sortcol=3
 sensor_lines='Package id 0|fan1'
 newline='
 '
-header="\nVM NAME               CPU(% )    MEMORY(MB)"
+header="\033[2K\nVM NAME               CPU(% )    MEMORY(MB)"
 sumline="________________________________________"
 
 other_stats () {
@@ -37,7 +41,7 @@ stdbuf -oL xentop -b -f -d $delay \
         #clear
         #sensors |grep -E "^($sensor_lines)"
         other_stats
-        echo -e "$header\n"
+        echo -e "$header\n\033[2K"
       fi
     done
   )
