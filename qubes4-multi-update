@@ -92,7 +92,7 @@ def main(args=None, app=None):
             print("VM is running.")
         else:
             print("Starting VM...")
-            p = vm.run("sleep 2s", wait=True, connect_timeout=30)
+            p = vm.run("sync; sleep 2s", wait=True, connect_timeout=30)
         pstate = vm.get_power_state()
         if pstate != "Running":
             print("\nVM State is", pstate, "and not usable - SKIPPING.\n")
@@ -136,6 +136,7 @@ def main(args=None, app=None):
         echo Done.
         """)
         p.stdin.close()
+        p = vm.run("sync; sleep 2s", wait=True, connect_timeout=10)
 
         try:
             subprocess.check_call(["qvm-run","-p","-u","root",vm.name, \
