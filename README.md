@@ -59,4 +59,4 @@ Displays lmsensors and xentop system stats including temperature, fan speed, VM 
 ---
 
 ### Caveat
-These scripts come with no warranty expressed or implied... use at your own risk! Also note that downloading programs via https may not protect their integrity in every case, so its a good idea to download with `git clone` and use a `gpg`-based verification procedure like `git log --show-signatures -1`.
+These scripts come with no warranty expressed or implied... use at your own risk! Also note that downloading programs via https may not protect their integrity in every case, so its a good idea to download with `git clone` and use a `gpg`-based verification procedure like `git log --show-signature -1`.
