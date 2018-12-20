@@ -19,6 +19,8 @@ Updates multiple template and standalone VMs (and dom0).
 
 On Qubes 3.x the `--shutdown` option can be used with `--trim` to help ensure template trims are successful; Note that Trim is unneeded on Qubes 4. Dom0 is normally ignored unless specified on the command line, and unlike the others dom0 update currently runs in interactive mode (and last). Excludes may also be specified in '/etc/qubes/autoupdate-exclude'.
 
+Update 12/20/18: On Qubes 4 an update will be run for each specified VM even if
+some VM updates return an error. Any VMs with errors will be reported at the end.
 
 ## configure-sudo-prompt
 Restores internal VM security so that authorization is required to gain root access. Auth is in the form of a dom0 popup yes/no prompt requiring the user to hit 'Enter' or 'OK'. Based on Qubes vm-sudo howto. For Debian 9 VMs. (Caution! Back up your template before using, just in case re-configuration fails.)
@@ -26,7 +28,9 @@ Restores internal VM security so that authorization is required to gain root acc
 
 ## findpref
 Dom0: Find all VMs that match a pref value, optionally set new values for them. For example, its a handy way to switch all VMs that are using a particular netvm to a different netvm.
+
 Update 12/20/18: The searchval parameter is now optional; without it all VMs with the pref will be printed.
+Also, a 'None' searchval can now match an empty/absent value.
 
     Usage: `findpref -p prefname [searchval] [newval]`
     

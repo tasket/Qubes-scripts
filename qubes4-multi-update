@@ -18,18 +18,20 @@ import qubesadmin.tools
 
 usage = "usage: %prog [options] [vms-to-be-included ...]"
 parser = OptionParser (usage)
-parser.add_option ("-a", "--all", action="store_true", dest="include_all", default=False,
-                   help="Include all updateable VMs")
-parser.add_option ("-l", "--available", action="store_true", dest="include_available", default=False,
+parser.add_option ("-a", "--all", action="store_true", dest="include_all",
+                   default=False, help="Include all updateable VMs")
+parser.add_option ("-l", "--available", action="store_true",
+                   dest="include_available", default=False,
                    help="Include VMs known to have available updates")
-parser.add_option ("-t", "--templates", action="store_true", dest="templates_only", default=False,
+parser.add_option ("-t", "--templates", action="store_true",
+                   dest="templates_only", default=False,
                    help="Include only templates, not standalone")
 parser.add_option ("-e", "--exclude", action="append", dest="exclude_list",
                    help="Exclude VM; repeat as needed")
-parser.add_option ("-u", "--unattended", action="store_true", dest="unattended", default=False,
-                   help="Non-interactive, supress prompts")
-parser.add_option ("--shutdown-all", action="store_true", dest="shutdown_all", default=False,
-                   help="Shutdown _all_ VMs at end of process")
+parser.add_option ("-u", "--unattended", action="store_true",dest="unattended",
+                   default=False, help="Non-interactive, supress prompts")
+parser.add_option ("--shutdown-all", action="store_true", dest="shutdown_all",
+                   default=False, help="Shutdown _all_ VMs at end of process")
 
 
 def main(args=None, app=None):
@@ -39,7 +41,7 @@ def main(args=None, app=None):
         options.exclude_list = []
     qc = qubesadmin.Qubes().app.domains
 
-    vmlist = []
+    vmlist = []; errlist = []
     excludes = ["dom0","windows7", "windows8", "windows10"]
     exclude_file = "/etc/qubes/autoupdate-exclude"
     exclude_from_file = []
@@ -48,6 +50,7 @@ def main(args=None, app=None):
             lines = f.readlines()
         exclude_from_file = [str(e.strip()) for e in lines]
         print("List from", exclude_file, "is in effect...")
+
 
     # Process selections
     for vm in qc:
@@ -71,7 +74,8 @@ def main(args=None, app=None):
         print("  ", vm.name)
 
     if (len (vmlist) < 1):
-        print("You must specify --all, --available or VM names.", file=sys.stderr)
+        print("You must specify --all, --available or VM names.",
+              file=sys.stderr)
         exit (1)
 
 
@@ -99,10 +103,13 @@ def main(args=None, app=None):
             vm.shutdown()
             continue
 
-        p = subprocess.Popen(["qvm-run","-p","-u","root",vm.name,b"cat >"+tmpscript], stdin=PIPE)
+        p = subprocess.Popen(["qvm-run","-p","-u","root",vm.name,
+                              b"cat >"+tmpscript], stdin=PIPE)
         p.stdin.write(b"#!/bin/bash\n")
         if options.unattended:
             p.stdin.write(b"export unattended=true\n")
+
+        ###>  BEGIN VM SCRIPT  <###
         p.stdin.write(b"""export TERM=vt100
         if [ -e /var/lib/whonix ]; then
             curl -s --connect-timeout 30 localhost:8082 >/dev/null
@@ -111,6 +118,7 @@ def main(args=None, app=None):
                 sleep 3s
             done
         fi
+        set -e
         if [ -e /etc/redhat-release ]; then
             if [ "$unattended" = "true" ]; then
                 dnf update -y --best
@@ -135,15 +143,17 @@ def main(args=None, app=None):
         fi
         echo Done.
         """)
-        p.stdin.close()
-        p = vm.run("sync; sleep 2s", wait=True, connect_timeout=10)
+        ###>  END VM SCRIPT  <###
 
+        p.stdin.close()
+
+        p = vm.run("sync; sleep 2s", wait=True, connect_timeout=10)
         try:
             subprocess.check_call(["qvm-run","-p","-u","root",vm.name, \
                 b"chmod +x "+tmpscript+b" && bash "+tmpscript])
         except:
-            print("\n**", vm.name, "update returned non-zero status!")
-            raise
+            print("\n***", vm.name, "update returned non-zero status!")
+            errlist.append(vm.name)
         finally:
             subprocess.check_call(["qvm-run","-p","-u","root",vm.name, \
                 b"rm -f "+tmpscript])
@@ -166,15 +176,20 @@ def main(args=None, app=None):
             try:
                 subprocess.check_call(["sudo","/usr/bin/qubes-dom0-update"])
             except:
-                print("\n** qubes-dom0-update returned non-zero status")
-                exit(1)
+                print("\n*** qubes-dom0-update returned non-zero status!")
+                errlist.append(vm.name)
             break
 
     if options.shutdown_all:
-        subprocess.check_call(["qvm-shutdown", "--all", "--wait", "--wait-time=40"])
-
+        subprocess.check_call(["qvm-shutdown", "--all",
+                               "--wait", "--wait-time=40"])
 
     print("\nEnd of Multi-Update process.")
+
+    if len(errlist) > 0:
+        print("\n*** The following VMs had update ERRORS:")
+        print("***", ", ".join(errlist))
+        exit(1)
 
 
 
