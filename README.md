@@ -26,14 +26,18 @@ Restores internal VM security so that authorization is required to gain root acc
 
 ## findpref
 Dom0: Find all VMs that match a pref value, optionally set new values for them. For example, its a handy way to switch all VMs that are using a particular netvm to a different netvm.
+Update 12/20/18: The searchval parameter is now optional; without it all VMs with the pref will be printed.
 
-    Usage: `findpref -p prefname searchval [newval]`
+    Usage: `findpref -p prefname [searchval] [newval]`
     
     Options:
       -p, --pref        Specify pref name/key to match (required)
       -e, --exclude     Exclude VM(s) from search result
       -y, --yes         Set values without prompting
           --mtypes      Match VM type(s)
+
+## kde-color.sh
+Sets custom window border colors on Qubes KDE. The defaults are muted colors that look nice with both light and dark app color schemes.
 
 ## do-snapshot.py
 Keeps a rotating collection of Btrfs snapshots for root fs in a /Snapshots folder. Default settings retain four snapshots over a period of about 18-24 hours. Qubes 3.x only.

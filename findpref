@@ -11,7 +11,7 @@ from time import sleep
 from optparse import OptionParser
 import qubesadmin.vm
 
-usage = "usage: %prog [options] --pref=name search_value [new_value]"
+usage = "usage: %prog [options] --pref=name [search_value] [new_value]"
 parser = OptionParser (usage)
 parser.add_option ("-p", "--pref", action="store", type="string", dest="prefname",
                    help="(Required) Name of pref to search/change")
@@ -26,19 +26,24 @@ parser.add_option ("--mtypes", action="append", dest="mtypes",
 def main(args=None, app=None):
 
     (options, args) = parser.parse_args ()
-    if len(args) >0 and len(options.prefname)>0:
-        searchval = args[0]
+    if len(options.prefname) > 0:
         if len(args) == 2:
+            searchval = args[0]
             newval = args[1]
             if not options.go_ahead and \
                 input("Are you sure (y/N)? ").lower() not in ["y", "yes"]:
                 exit(0)
         elif len(args) == 1:
+            searchval = args[0]
             newval = None
+        elif len(args) == 0:
+            searchval = None
         else:
-            raise "Too many args."
+            print("Too many args.")
+            exit(1)
     else:
-        raise "You must supply a --pref plus a value."
+        print("You must supply a --pref <prefname>")
+        exit(1)
 
     if options.exclude_list is None:
         options.exclude_list = []
@@ -48,7 +53,7 @@ def main(args=None, app=None):
 
     qc = qubesadmin.Qubes().app.domains
     vmlist = []
-
+ 
     # Process selections
     for vm in qc:
         if vm.qid > 0:
@@ -59,15 +64,28 @@ def main(args=None, app=None):
             vmlist.append(vm)
 
 
+
     for vm in vmlist:
+
         try:
             value = getattr(vm, options.prefname)
         except AttributeError:
             #print("No such property '{0}'".format(options.prefname))
             continue
 
-        if value is not None:
-            if str(value) == searchval:
+        if searchval is None:
+            print("Pref '{0}' for VM {1:<20s}:".format(options.prefname,
+                vm.name), "  '{0}'".format(str(value)))
+
+        else:
+            match = False
+            if searchval.lower() == "none" and not value:
+                match = True
+                
+            elif value and str(value) == searchval:
+                match = True
+
+            if match:
                 print("Pref '{0}' for VM {1:<20s}:".format(options.prefname, vm.name), end="   ")
                 try:
                     if newval is not None:
@@ -83,7 +101,8 @@ def main(args=None, app=None):
                 except:
                     print("Error:", sys.exc_info()[0])
                     continue
-        
+
+
 
 
 if __name__ == '__main__':
