@@ -181,7 +181,7 @@ def main(args=None, app=None):
             break
 
     if options.shutdown_all:
-        subprocess.check_call(["qvm-shutdown", "--all",
+        subprocess.check_call(["qvm-shutdown", "--all", "--force",
                                "--wait", "--wait-time=40"])
 
     print("\nEnd of Multi-Update process.")
