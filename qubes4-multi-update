@@ -32,6 +32,8 @@ parser.add_option ("-u", "--unattended", action="store_true",dest="unattended",
                    default=False, help="Non-interactive, supress prompts")
 parser.add_option ("--shutdown-all", action="store_true", dest="shutdown_all",
                    default=False, help="Shutdown _all_ VMs at end of process")
+parser.add_option ("--autoremove", action="store_true", dest="autoremove",
+                   default=False, help="Clean up 'leaf' packages after update")
 
 
 def main(args=None, app=None):
@@ -84,7 +86,7 @@ def main(args=None, app=None):
     for vm in vmlist:
         if vm.qid == 0: # If dom0 selected, save it for last
             continue
-        
+
         rows,cols = os.popen('stty size', 'r').read().split()
         print("\n")
         print("_" * int(cols))
@@ -97,19 +99,22 @@ def main(args=None, app=None):
         else:
             print("Starting VM...")
             p = vm.run("sync; sleep 2s", wait=True, connect_timeout=30)
+
         pstate = vm.get_power_state()
         if pstate != "Running":
             print("\nVM State is", pstate, "and not usable - SKIPPING.\n")
             vm.shutdown()
             continue
 
+        # Write VM script header
         p = subprocess.Popen(["qvm-run","-p","-u","root",vm.name,
                               b"cat >"+tmpscript], stdin=PIPE)
         p.stdin.write(b"#!/bin/bash\n")
-        if options.unattended:
-            p.stdin.write(b"export unattended=true\n")
+        p.stdin.write(b"export yes_opt=" + [b" ", b"-y"][options.unattended] + b"\n")
+        p.stdin.write(b"export unattended=" + [b"false", b"true"][options.unattended] + b"\n")
+        p.stdin.write(b"export autoremove=" + [b"false", b"true"][options.autoremove] + b"\n")
 
-        ###>  BEGIN VM SCRIPT  <###
+        ###>  BEGIN MAIN VM SCRIPT  <###
         p.stdin.write(b"""export TERM=vt100
         if [ -e /var/lib/whonix ]; then
             curl -s --connect-timeout 30 localhost:8082 >/dev/null
@@ -120,12 +125,12 @@ def main(args=None, app=None):
         fi
         set -e
         if [ -e /etc/redhat-release ]; then
-            if [ "$unattended" = "true" ]; then
-                dnf update -y --best  ||  dnf update -y
-            else
-                dnf update --best  ||  dnf update
+            dnf update $yes_opt --best  ||  dnf update $yes_opt
+            dnf clean packages $yes_opt
+            if [ "$autoremove" = "true" ]; then
+                echo Autoremove:
+                dnf autoremove -v $yes_opt
             fi
-            dnf clean packages
         elif [ -e /etc/debian_version ]; then
             apt-get update
             if [ "$unattended" = "true" ]; then
@@ -134,6 +139,10 @@ def main(args=None, app=None):
                   -o Dpkg::Options::="--force-confold"
             else
                 apt-get dist-upgrade -V
+            fi
+            if [ "$autoremove" = "true" ]; then
+                echo Autoremove:
+                apt-get autoremove $yes_opt
             fi
             apt-get clean
         # elif [ -e /etc/arch-release ]; then
@@ -165,20 +174,6 @@ def main(args=None, app=None):
                 sleep(2)
             print()
 
-
-    for vm in vmlist:
-        if vm.qid == 0:
-            rows,cols = os.popen('stty size', 'r').read().split()
-            print("\n")
-            print("=" * int(cols))
-            print("\n  Beginning update for dom0")
-            print("=" * int(cols))
-            try:
-                subprocess.check_call(["sudo","/usr/bin/qubes-dom0-update"])
-            except:
-                print("\n*** qubes-dom0-update returned non-zero status!")
-                errlist.append(vm.name)
-            break
 
     if options.shutdown_all:
         subprocess.check_call(["qvm-shutdown", "--all", "--force",

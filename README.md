@@ -3,7 +3,7 @@ Scripts that help with administration and usage of Qubes OS
 
 
 ## qubes4-multi-update
-Updates multiple template and standalone VMs (and dom0).
+Updates multiple template and standalone VMs.
 
     Usage: `qubes4-multi-update [options] [vms-to-be-included ...]`
 
@@ -14,7 +14,8 @@ Updates multiple template and standalone VMs (and dom0).
       -e, --exclude      Exclude VM from selection; repeat as needed
       -t, --templates    Exclude non-templates
       -u, --unattended   Non-interactive, supress prompts
-      -s, --shutdown     Shutdown all VMs after updates
+      --autoremove       Remove 'unused' packages with no dependencies
+      --shutdown-all     Shutdown all VMs after updates
 
 
 Excludes may also be specified in '/etc/qubes/autoupdate-exclude'.
@@ -22,7 +23,8 @@ Excludes may also be specified in '/etc/qubes/autoupdate-exclude'.
 Updates will be run for each specified VM even if
 some VM updates return an error. Any VMs with errors will be reported at the end.
 
-Dom0 is always skipped unless it is specified on the command line.
+Note: Dom0 update is no longer included. Please see Qubes documentation on using `qubesctl`
+command to perform updates as you may find it preferable to using this script.
 
 
 ## configure-sudo-prompt
