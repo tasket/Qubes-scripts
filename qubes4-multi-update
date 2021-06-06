@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 ##
 ##  Update multiple operating systems on Qubes R4 systems
-##  by Chris Laprise 2017-2018
+##  by Chris Laprise 2017-2021
 ##  tasket@protonmail.com  https://github.com/tasket
 
 
@@ -121,9 +121,9 @@ def main(args=None, app=None):
         set -e
         if [ -e /etc/redhat-release ]; then
             if [ "$unattended" = "true" ]; then
-                dnf update -y --best
+                dnf update -y --best  ||  dnf update -y
             else
-                dnf update --best
+                dnf update --best  ||  dnf update
             fi
             dnf clean packages
         elif [ -e /etc/debian_version ]; then
