@@ -13,6 +13,7 @@ colors[6]="orange 166,82,20"
 colors[7]="red 166,55,59"
 
 kcpath=~/.local/share/qubes-kde
+mkdir -p $kcpath
 
 for i in {0..7}; do 
 
